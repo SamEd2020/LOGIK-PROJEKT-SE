@@ -31,7 +31,7 @@
 
 # -------------------------------------------------------------------------- #
 
-# File Name:        serial_number.py
+# File Name:        sync_ocio_configs.py
 # Version:          2.0.0
 # Created:          2024-01-19
 # Modified:         2024-12-31
@@ -98,7 +98,7 @@ if modules_dir not in sys.path:
 # This section defines third party imports.
 # ========================================================================== #
 
-from PySide6.QtWidgets import QLineEdit
+# -------------------------------------------------------------------------- #
 
 # ========================================================================== #
 # This section defines environment specific variables.
@@ -185,37 +185,154 @@ the_projekt_flame_name = f"{the_projekt_name}_{the_sanitized_version}_{the_hostn
 
 separator = '# ' + '-' * 75 + ' #'
 
-the_projekt_dir = f"{the_projekts_dir}/{the_projekt_name}"
-the_projekt_flame_dir = f"{the_projekt_flame_dirs}/{the_projekt_flame_name}"
-
 # ========================================================================== #
 # This section defines the primary functions for the script.
 # ========================================================================== #
 
-class WidgetSerialNumber(QLineEdit):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-       
-        # Set object name if needed
-        self.setObjectName("template_serial_number")
+# Function to synchronize color management transforms
+def sync_ocio_configs(
+        the_projekt_os,
+        the_hostname,
+        the_projekts_dir,
+        the_projekt_flame_dirs,
+        the_adsk_dir,
+        the_adsk_dir_linux,
+        the_adsk_dir_macos,
+        the_projekt_name,
+        the_projekt_flame_name,
+        the_sanitized_version,
+        separator,
+    ):
+   
+    # Nested function to generate backup filename with current date
+    def generate_backup_filename(filepath):
+        # Get the current date
+        date_str = datetime.datetime.now().strftime("%Y_%m_%d")
+        # Split the file path into name and extension
+        base, ext = os.path.splitext(filepath)
+        # Create the backup filename with the date suffix
+        return f"{base}.{date_str}.bak"
 
-        # Set default properties
-        self.setPlaceholderText("Projekt Serial Number (Optional)...")
-        self.setReadOnly(False)
+    # Set the projekt_dir
+    the_projekt_dir =f"{the_projekts_dir}/{the_projekt_name}"
 
-        # Optionally, set additional properties based on widget_parameters
+    # Set the projekt_flame_dir
+    the_projekt_flame_dir =f"{the_projekt_flame_dirs}/{the_projekt_flame_name}"
 
-    def get_widget_parameters(self):
-        widget_parameters = {
-            "widget_name": "template_serial_number",
-            "widget_type": "QLineEdit",
-            "widget_label_name": "Serial Number: ",
-            "widget_default_value": "",
-            "widget_placeholder_value": "Projekt Serial Number (Optional)...",
-            "widget_item_values": "",
-            "widget_read_only": False
-        }
-        return widget_parameters
+# --------------- ENABLE THIS FUNCTION FOR FLAME 2025 ---------------------- #
+
+    # # Define the projekt flame setups directory for flame 2025
+    # the_projekt_flame_setups_dir = the_projekt_flame_dir
+
+# --------------- ENABLE THIS FUNCTION FOR FLAME 2026 ---------------------- #
+
+    # Define the projekt flame setups directory based on the flame version
+    the_projekt_flame_setups_dir = os.path.join(
+        the_projekt_flame_dir,
+        'setups'
+    )
+
+    # # Experimental shit that keeps changing
+    # if the_sanitized_version.startswith("2025"):
+    #     the_projekt_flame_setups_dir = the_projekt_flame_dir
+    # else:
+    #     the_projekt_flame_setups_dir = os.path.join(
+    #         the_projekt_flame_dir,
+    #         'setups'
+    #     )
+
+# -------------------------------------------------------------------------- #
+
+    # Set the source parent directory
+    src_transforms_dir = "resources/flame/Syncolor/Shared/transforms"
+    tgt_projekt_transforms_dir = os.path.join(the_projekt_dir, "utilities", "Synergy", "SynColor", "Shared", "transforms")
+
+    # Set the target parent directory based on the operating system
+    if the_projekt_os == "Linux":
+        tgt_synergy_dir = os.path.join(the_adsk_dir_linux, "Synergy")
+        tgt_transforms_dir = os.path.join(tgt_synergy_dir, "SynColor", "Shared", "transforms")
+    # elif the_projekt_os == "macOS":
+    elif the_projekt_os == "Darwin":
+        tgt_synergy_dir = os.path.join(the_adsk_dir_macos, "Synergy")
+        tgt_transforms_dir = os.path.join(tgt_synergy_dir, "SynColor", "Shared", "transforms")
+    else:
+        print("Unsupported operating system.")
+        return 1
+
+    # Print the variables for debugging
+    print(f"  Debug: the_projekt_os:              {the_projekt_os}")
+    print(f"  Debug: the_projekts_dir:            {the_projekts_dir}")
+    print(f"  Debug: the_projekt_dir:             {the_projekt_dir}")
+    print(f"  Debug: the_projekt_flame_dirs:      {the_projekt_flame_dirs}")
+    print(f"  Debug: the_projekt_flame_dir:       {the_projekt_flame_dir}")
+    print(f"  Debug: tgt_projekt_transforms_dir:  {tgt_projekt_transforms_dir}")
+    print(f"  Debug: src_transforms_dir:          {src_transforms_dir}")
+    print(f"  Debug: tgt_transforms_dir:          {tgt_transforms_dir}")
+
+    print("  synchronizing Syncolor transforms directories.\n")
+
+    # Set the umask to 0
+    os.umask(0)
+
+    # Set the rsync options
+    sync_opts = ["-av"]
+
+    # Use rsync to copy the transforms
+    result = subprocess.run(
+        ["rsync"] + sync_opts + [f"{src_transforms_dir}/", f"{tgt_transforms_dir}/"],
+        text=True,
+        capture_output=True
+    )
+
+    # Print rsync output
+    print(result.stdout.replace('\n', '\n  '))
+
+    print("\n  media import preferences & rules synchronized.")
+    print("\n" + separator + "\n")
+
+    # # Use rsync to copy the projekt policies
+    # result = subprocess.run(
+    #     ["rsync"] + sync_opts + [f"{src_transforms_dir}/", f"{tgt_projekt_transforms_dir}/"],
+    #     text=True,
+    #     capture_output=True
+    # )
+
+    # # Print rsync output
+    # print(result.stdout.replace('\n', '\n  '))
+
+    # # Symbolic link the policies directory
+    # os.symlink(tgt_transforms_dir, tgt_projekt_transforms_dir)
+
+    # print("\n  media import preferences & rules synchronized.")
+    # print("\n" + separator + "\n")
+
+def main():
+    # Example values for the function arguments
+    # the_projekt_os = "Linux"  # Update with actual value
+    # sync_opts = ["-av"]  # Update with actual rsync options
+    separator = "-" * 80
+
+    # Call the function to synchronize color management transforms
+    sync_ocio_configs(
+        the_projekt_os,
+        the_hostname,
+        the_projekts_dir,
+        the_projekt_flame_dirs,
+        the_adsk_dir,
+        the_adsk_dir_linux,
+        the_adsk_dir_macos,
+        the_projekt_name,
+        the_projekt_flame_name,
+        the_sanitized_version,
+        separator,
+    )
+
+# ========================================================================== #
+# This section defines how to handle the main script function.
+# ========================================================================== #
+
+if __name__ == "__main__":
+    main()
 
 # ========================================================================== #
 # 53 54 52 45 4E 47 54 48 2D 49 4E 2D 4E 55 4D 42 45 52 53 C2 A9 32 30 32 35 #
@@ -245,14 +362,14 @@ class WidgetSerialNumber(QLineEdit):
 # comments:         started gui design with pyside6.
 # -------------------------------------------------------------------------- #
 # version:          0.9.9
-# modified:         2024-08-31 - 16:51:10
+# modified:         2024-08-31 - 16:51:09
 # comments:         prep for release - code appears to be functional
 # -------------------------------------------------------------------------- #
 # version:          1.9.9
-# modified:         2024-12-25 - 09:50:19
+# modified:         2024-12-25 - 09:50:16
 # comments:         Preparation for future features
 # -------------------------------------------------------------------------- #
 # version:          2.0.0
-# modified:         2024-12-31 - 10:35:45
+# modified:         2024-12-31 - 10:35:37
 # comments:         Improved legibility and minor modifications
 # -------------------------------------------------------------------------- #
